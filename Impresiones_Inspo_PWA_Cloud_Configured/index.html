@@ -161,8 +161,13 @@
       </div>
       <div>
         <label class="label">Imagen / portada</label>
-        <input id="image" class="field" inputmode="url" placeholder="Se rellena automáticamente cuando es posible">
-      </div>
+<input id="image" class="field" inputmode="url"
+placeholder="URL o deja vacío y selecciona una imagen">
+
+<input id="imageFile" type="file" accept="image/*" style="margin-top:10px">
+
+<small style="color:#98a2b3">También puedes pegar una imagen con Ctrl+V.</small>
+</div>
       <div class="row">
         <div>
           <label class="label">Categoría</label>
@@ -583,6 +588,19 @@ document.querySelector('.app').insertBefore(backupBar,document.querySelector('.t
 $('#exportBtn').onclick=exportData;$('#importFile').onchange=e=>e.target.files[0]&&importData(e.target.files[0]);
 
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+
+document.addEventListener("paste", e => {
+    const item = [...e.clipboardData.items].find(i => i.type.startsWith("image/"));
+    if (!item) return;
+    const file = item.getAsFile();
+    const reader = new FileReader();
+    reader.onload = () => {
+        $("#image").value = reader.result;
+        if (typeof toast==="function") toast("Imagen pegada correctamente");
+    };
+    reader.readAsDataURL(file);
+});
+
 render();
 initCloud();
 </script>
