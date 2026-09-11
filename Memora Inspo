@@ -1,0 +1,679 @@
+window.CLOUD_CONFIG = {
+  SUPABASE_URL: "https://fbhnorbzcxyzmeqlampu.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_lEo6sGAtwq7p6n5vpW4TeA_tnaJhP4e"
+};
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d12" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Impresiones Inspo" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="icon" href="/icon-192.png" />
+  <title>Impresiones Inspo</title>
+  <script src="/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg:#0b0d12;--panel:#121722;--panel2:#171d29;--line:#263044;--text:#f7f8fb;
+      --muted:#98a2b3;--accent:#8b5cf6;--accent2:#a78bfa;--ok:#22c55e;--warn:#f59e0b;
+      --danger:#ef4444;--chip:#20283a;--shadow:0 18px 50px rgba(0,0,0,.30);
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg)}
+    body{margin:0;background:linear-gradient(180deg,#0b0d12 0%,#0e1118 100%);color:var(--text);
+      font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .app{max-width:1120px;margin:auto;padding:calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 110px)}
+    .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+    .brand h1{font-size:clamp(25px,5vw,38px);margin:0 0 5px;letter-spacing:-.04em}
+    .brand p{margin:0;color:var(--muted);font-size:14px}
+    .counter{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 13px;text-align:center;min-width:74px}
+    .counter b{display:block;font-size:21px}.counter span{font-size:11px;color:var(--muted)}
+    .panel{background:rgba(18,23,34,.92);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+    .quick{display:grid;grid-template-columns:1fr auto;gap:10px}
+    .field,select,textarea{width:100%;background:#0f1420;border:1px solid #2b354b;color:var(--text);border-radius:14px;
+      padding:13px 14px;outline:none}
+    .field:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+    .primary{border:0;background:linear-gradient(135deg,var(--accent),#6d4bf5);color:white;font-weight:800;border-radius:14px;padding:0 18px;min-height:47px}
+    .primary:disabled{opacity:.55;cursor:not-allowed}
+    .subtle{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:13px;padding:10px 12px;font-weight:700}
+    .danger{border-color:rgba(239,68,68,.35);color:#fca5a5}
+    .hint{margin:10px 1px 0;color:var(--muted);font-size:12px}
+    .loader{display:none;margin-top:10px;color:#c4b5fd;font-size:13px}.loader.on{display:block}
+    .toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;margin:15px 0}
+    .segmented{display:flex;gap:6px;overflow:auto;scrollbar-width:none}.segmented::-webkit-scrollbar{display:none}
+    .segmented button{white-space:nowrap;border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:999px;padding:9px 12px}
+    .segmented button.active{background:#2a1f4f;color:#ddd6fe;border-color:#6d4bf5}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+    .card{overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 34px rgba(0,0,0,.18);position:relative}
+    .card.printed{border-color:rgba(34,197,94,.7);box-shadow:0 0 0 1px rgba(34,197,94,.22),0 12px 34px rgba(0,0,0,.18)}
+    .cover{height:180px;background:#0f1420;display:block;width:100%;object-fit:cover;border-bottom:1px solid var(--line)}
+    .cover-placeholder{height:180px;display:grid;place-items:center;background:radial-gradient(circle at 30% 20%,#222b40,#0f1420 70%);font-size:48px;border-bottom:1px solid var(--line)}
+    .content{padding:14px}.title{margin:0 0 8px;font-size:18px;line-height:1.2}
+    .desc{color:var(--muted);font-size:12px;line-height:1.45;margin:0 0 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .badges{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 11px}
+    .badge{font-size:11px;font-weight:800;padding:6px 8px;border-radius:999px;background:var(--chip);border:1px solid #303a50}
+    .badge.cat{color:#ddd6fe;background:#251d46;border-color:#4f3e86}.badge.ok{color:#bbf7d0;background:#12361e;border-color:#246a37}
+    .badge.hw{color:#fde68a;background:#3a2c0d;border-color:#7a5a17}
+    .meta{display:grid;gap:6px;color:#c8d0de;font-size:12px;margin-bottom:12px}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.actions .wide{grid-column:1/-1}
+    .empty{padding:38px 16px;text-align:center;color:var(--muted);border:1px dashed #33415a;border-radius:18px}
+    .fab{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:calc(env(safe-area-inset-bottom) + 20px);
+      width:58px;height:58px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--accent),#6d4bf5);color:white;font-size:30px;box-shadow:0 18px 44px rgba(109,75,245,.45)}
+    dialog{border:1px solid var(--line);border-radius:22px;background:#111722;color:var(--text);width:min(680px,calc(100% - 24px));padding:0;box-shadow:0 40px 120px #000}
+    dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(5px)}
+    .modal-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+    .modal-head h2{margin:0;font-size:20px}.modal-body{padding:16px 18px;display:grid;gap:12px;max-height:72vh;overflow:auto}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.label{font-size:12px;color:var(--muted);margin-bottom:6px;display:block}
+    .toggle{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#0f1420}
+    .toggle input{width:20px;height:20px}.modal-foot{display:flex;justify-content:flex-end;gap:9px;padding:14px 18px;border-top:1px solid var(--line)}
+    .preview-img{width:100%;max-height:330px;object-fit:contain;background:#0b0d12;border-radius:15px;border:1px solid var(--line)}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 90px);background:#20283a;border:1px solid #37445f;color:white;
+      padding:11px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:.2s;z-index:1000;font-size:13px}
+    .toast.show{opacity:1}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+    @media(max-width:700px){
+      .quick{grid-template-columns:1fr}.quick .primary{min-height:48px}
+      .toolbar{grid-template-columns:1fr}.row{grid-template-columns:1fr}
+      .grid{grid-template-columns:1fr}.cover{height:210px}.counter{display:none}
+    }
+
+    .cloudbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .cloudleft{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+    .dot{width:9px;height:9px;border-radius:50%;background:#64748b;display:inline-block}
+    .dot.online{background:#22c55e}.dot.syncing{background:#f59e0b}.dot.offline{background:#ef4444}
+    .authbox{display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;width:100%}
+    .clouduser{font-size:12px;color:var(--muted)}
+    @media(max-width:700px){.authbox{grid-template-columns:1fr}.cloudbar{align-items:stretch}}
+
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Impresiones Inspo</h1>
+      <p>Tu biblioteca privada de ideas para impresión 3D.</p>
+    </div>
+    <div class="counter"><b id="count">0</b><span>proyectos</span></div>
+  </div>
+
+
+  <section class="panel" id="cloudPanel">
+    <div class="cloudbar">
+      <div class="cloudleft">
+        <span id="cloudDot" class="dot"></span>
+        <strong id="cloudStatus">Nube no configurada</strong>
+        <span id="cloudUser" class="clouduser"></span>
+      </div>
+      <div id="cloudActions"></div>
+    </div>
+    <div id="authBox" class="authbox" style="margin-top:12px;display:none">
+      <input id="authEmail" class="field" type="email" placeholder="Tu email">
+      <input id="authPassword" class="field" type="password" placeholder="Contraseña">
+      <button id="loginBtn" class="primary" type="button">Entrar</button>
+      <button id="signupBtn" class="subtle" type="button">Crear cuenta</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="quick">
+      <input id="quickUrl" class="field" inputmode="url" placeholder="Pega aquí un enlace de MakerWorld…" autocomplete="off">
+      <button id="quickAdd" class="primary">Importar modelo</button>
+    </div>
+    <div id="loader" class="loader">Leyendo título, portada y datos del modelo…</div>
+    <p class="hint">Si MakerWorld no responde, la app guarda igualmente el enlace y te deja completar los datos manualmente.</p>
+  </section>
+
+  <div class="toolbar">
+    <input id="search" class="field" placeholder="Buscar título, categoría, imanes, NFC…">
+    <select id="categoryFilter"><option value="">Todas las categorías</option></select>
+    <div class="segmented" id="statusFilters">
+      <button data-status="all" class="active">Todos</button>
+      <button data-status="pending">Pendientes</button>
+      <button data-status="printed">Impresos</button>
+    </div>
+  </div>
+
+  <div id="grid" class="grid"></div>
+</div>
+
+<button class="fab" id="newBtn" aria-label="Nuevo proyecto">+</button>
+
+<dialog id="editDialog">
+  <form id="projectForm" method="dialog">
+    <div class="modal-head">
+      <h2 id="dialogTitle">Nuevo proyecto</h2>
+      <button type="button" class="subtle" id="closeDialog">Cerrar</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="projectId">
+      <div>
+        <label class="label">Título</label>
+        <input id="title" class="field" required>
+      </div>
+      <div>
+        <label class="label">Enlace MakerWorld</label>
+        <input id="url" class="field" inputmode="url">
+      </div>
+      <div>
+        <label class="label">Imagen / portada</label>
+        <input id="image" class="field" inputmode="url" placeholder="Se rellena automáticamente cuando es posible">
+      </div>
+      <div class="row">
+        <div>
+          <label class="label">Categoría</label>
+          <select id="category"></select>
+        </div>
+        <div>
+          <label class="label">Tiempo estimado de impresión</label>
+          <input id="time" class="field" placeholder="Ej. 4 h 30 min">
+        </div>
+      </div>
+      <div>
+        <label class="label">Hardware / materiales extra</label>
+        <input id="extras" class="field" placeholder="Ej. Imanes 6x2mm, NFC NTAG215, pegamento">
+      </div>
+      <div>
+        <label class="label">Descripción / notas</label>
+        <textarea id="notes" rows="4" placeholder="Filamento, cambios, color, cliente, etc."></textarea>
+      </div>
+      <label class="toggle"><input type="checkbox" id="printed"> <span>¿Ya la imprimí?</span></label>
+    </div>
+    <div class="modal-foot">
+      <button type="button" id="deleteBtn" class="subtle danger">Eliminar</button>
+      <button type="submit" class="primary">Guardar proyecto</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="previewDialog">
+  <div class="modal-head">
+    <h2 id="previewTitle">Vista previa</h2>
+    <button type="button" class="subtle" id="closePreview">Cerrar</button>
+  </div>
+  <div class="modal-body">
+    <img id="previewImg" class="preview-img" alt="">
+    <div id="previewBadges" class="badges"></div>
+    <div id="previewMeta" class="meta"></div>
+    <p id="previewDesc" class="desc" style="-webkit-line-clamp:unset"></p>
+    <button id="previewOpen" class="primary" type="button">Abrir en MakerWorld</button>
+  </div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const STORAGE_KEY='impresiones_inspo_v3';
+const categories=['Organizadores','Decoración','Herramientas','Juguetes','Gadgets / Efectos','Hogar','Accesorios','Otro'];
+const categoryKeywords={
+  'Organizadores':['organizer','organiser','organizador','storage','holder','stand','rack','tray','drawer','box','case','cable'],
+  'Decoración':['decor','decoration','deco','vase','flower','plant','ornament','figurine','statue','wall art','lamp'],
+  'Herramientas':['tool','tools','wrench','screwdriver','drill','clamp','jig','fixture','caliper','workshop','werkzeug'],
+  'Juguetes':['toy','game','lego','fidget','dinosaur','dragon','pokemon','figure','puzzle','articulated','flexi'],
+  'Gadgets / Efectos':['gadget','nfc','ntag','led','electronic','smart','effect','mechanism','robot','tech','keychain','airtag','magnet'],
+  'Hogar':['kitchen','bathroom','home','coffee','cup','mug','soap','toothbrush','shower','wall mount'],
+  'Accesorios':['accessory','phone','iphone','ipad','watch','controller','headphone','wallet','car']
+};
+const extraRules=[
+  ['Imanes',['magnet','magnetic','iman','imanes','neodymium']],
+  ['Chip NFC',['nfc','ntag','nfc215','nfc 215']],
+  ['Tornillos',['screw','bolt','m3','m4']],
+  ['Rodamientos',['bearing','608zz','625zz']],
+  ['Luces LED',['led','ws2812','neopixel']],
+  ['Pegamento',['glue','adhesive','super glue']]
+];
+
+let projects=load();
+let statusFilter='all';
+let sb=null;
+let currentUser=null;
+let syncTimer=null;
+let realtimeChannel=null;
+let cloudConfigured=false;
+
+const $=s=>document.querySelector(s);
+const grid=$('#grid'), count=$('#count'), search=$('#search'), categoryFilter=$('#categoryFilter');
+const editDialog=$('#editDialog'), previewDialog=$('#previewDialog');
+
+function load(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    return Array.isArray(parsed)?parsed:[];
+  }catch{return []}
+}
+function saveLocal(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(projects));
+  render();
+}
+function save(){
+  saveLocal();
+  scheduleCloudSync();
+}
+function esc(s=''){
+  return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function stripHtml(s=''){const d=document.createElement('div');d.innerHTML=s;return d.textContent||d.innerText||''}
+function toast(msg){
+  const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2200);
+}
+function deriveTitle(url){
+  try{
+    const u=new URL(url), seg=u.pathname.split('/').filter(Boolean).pop()||'Modelo MakerWorld';
+    return decodeURIComponent(seg).replace(/^\d+-?/,'').replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  }catch{return 'Modelo MakerWorld'}
+}
+function detectCategory(text=''){
+  const t=text.toLowerCase();
+  let best='Otro',score=0;
+  for(const [cat,words] of Object.entries(categoryKeywords)){
+    const s=words.reduce((n,w)=>n+(t.includes(w)?1:0),0);
+    if(s>score){score=s;best=cat}
+  }
+  return best;
+}
+function detectExtras(text=''){
+  const t=text.toLowerCase();
+  return extraRules.filter(([_,words])=>words.some(w=>t.includes(w))).map(([name])=>name);
+}
+function uniq(arr){return [...new Set((arr||[]).map(x=>String(x).trim()).filter(Boolean))]}
+function normalizeImage(v){
+  if(Array.isArray(v)) return v[0]||'';
+  if(v&&typeof v==='object') return v.url||v.contentUrl||'';
+  return v||'';
+}
+function fillCategoryOptions(){
+  $('#category').innerHTML=categories.map(c=>`<option>${esc(c)}</option>`).join('');
+  categoryFilter.innerHTML='<option value="">Todas las categorías</option>'+categories.map(c=>`<option>${esc(c)}</option>`).join('');
+}
+fillCategoryOptions();
+
+
+function cloudReady(){
+  const c=window.CLOUD_CONFIG||{};
+  return c.SUPABASE_URL && c.SUPABASE_ANON_KEY &&
+    !c.SUPABASE_URL.includes('PEGA_AQUI') && !c.SUPABASE_ANON_KEY.includes('PEGA_AQUI');
+}
+
+function setCloudStatus(text,state=''){
+  $('#cloudStatus').textContent=text;
+  const d=$('#cloudDot');d.className='dot '+state;
+  $('#cloudUser').textContent=currentUser?.email ? currentUser.email : '';
+}
+
+async function initCloud(){
+  if(!cloudReady()){
+    cloudConfigured=false;
+    setCloudStatus('Nube no configurada');
+    $('#authBox').style.display='none';
+    $('#cloudActions').innerHTML='<span class="clouduser">Completa config.js para activar la sincronización</span>';
+    return;
+  }
+  cloudConfigured=true;
+  try{
+    sb=window.supabase.createClient(window.CLOUD_CONFIG.SUPABASE_URL,window.CLOUD_CONFIG.SUPABASE_ANON_KEY);
+    const {data:{session}}=await sb.auth.getSession();
+    currentUser=session?.user||null;
+    updateAuthUI();
+    if(currentUser) await syncCloud(true);
+    sb.auth.onAuthStateChange(async (_event,session)=>{
+      currentUser=session?.user||null;
+      updateAuthUI();
+      if(currentUser) await syncCloud(true);
+    });
+    window.addEventListener('online',()=>{if(currentUser) syncCloud(true)});
+    window.addEventListener('offline',()=>setCloudStatus('Sin conexión · copia local activa','offline'));
+  }catch(e){
+    setCloudStatus('Error de conexión con la nube','offline');
+  }
+}
+
+function updateAuthUI(){
+  if(!cloudConfigured)return;
+  if(currentUser){
+    $('#authBox').style.display='none';
+    $('#cloudActions').innerHTML='<button id="syncNowBtn" class="subtle" type="button">Sincronizar ahora</button> <button id="logoutBtn" class="subtle" type="button">Salir</button>';
+    $('#syncNowBtn').onclick=()=>syncCloud(true);
+    $('#logoutBtn').onclick=()=>sb.auth.signOut();
+    setCloudStatus(navigator.onLine?'Sincronizado con la nube':'Sin conexión · copia local activa',navigator.onLine?'online':'offline');
+    subscribeRealtime();
+  }else{
+    if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null}
+    $('#authBox').style.display='grid';
+    $('#cloudActions').innerHTML='';
+    setCloudStatus('Inicia sesión para sincronizar','');
+  }
+}
+
+async function signIn(){
+  const email=$('#authEmail').value.trim(),password=$('#authPassword').value;
+  if(!email||!password)return toast('Escribe email y contraseña');
+  setCloudStatus('Entrando…','syncing');
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error){setCloudStatus('No se pudo iniciar sesión','offline');toast(error.message)}
+}
+async function signUp(){
+  const email=$('#authEmail').value.trim(),password=$('#authPassword').value;
+  if(!email||!password)return toast('Escribe email y contraseña');
+  if(password.length<6)return toast('Usa una contraseña de al menos 6 caracteres');
+  setCloudStatus('Creando cuenta…','syncing');
+  const {data,error}=await sb.auth.signUp({email,password});
+  if(error){setCloudStatus('No se pudo crear la cuenta','offline');return toast(error.message)}
+  toast(data.session?'Cuenta creada':'Revisa tu email para confirmar la cuenta');
+}
+document.addEventListener('click',e=>{
+  if(e.target.id==='loginBtn')signIn();
+  if(e.target.id==='signupBtn')signUp();
+});
+
+function scheduleCloudSync(){
+  if(!currentUser||!navigator.onLine)return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>syncCloud(false),550);
+}
+
+async function syncCloud(showToast=false){
+  if(!sb||!currentUser||!navigator.onLine)return;
+  setCloudStatus('Sincronizando…','syncing');
+  try{
+    const {data:rows,error}=await sb.from('projects').select('id,data,created_at,updated_at').order('updated_at',{ascending:false});
+    if(error)throw error;
+
+    const cloudMap=new Map((rows||[]).map(r=>[r.id,r]));
+    const localMap=new Map(projects.map(p=>[p.id,p]));
+    const merged=[];
+
+    for(const p of projects){
+      const r=cloudMap.get(p.id);
+      if(!r){merged.push(p);continue}
+      const localTime=new Date(p.updatedAt||p.createdAt||0).getTime();
+      const cloudData=r.data||{};
+      const cloudTime=new Date(cloudData.updatedAt||r.updated_at||0).getTime();
+      merged.push(cloudTime>localTime ? {...cloudData,id:r.id} : p);
+      cloudMap.delete(p.id);
+    }
+    for(const r of cloudMap.values())merged.push({...r.data,id:r.id});
+    projects=merged;
+    saveLocal();
+
+    const upserts=projects.map(p=>({
+      id:p.id,
+      user_id:currentUser.id,
+      data:p,
+      created_at:p.createdAt||new Date().toISOString(),
+      updated_at:p.updatedAt||new Date().toISOString()
+    }));
+    if(upserts.length){
+      const {error:upErr}=await sb.from('projects').upsert(upserts,{onConflict:'id'});
+      if(upErr)throw upErr;
+    }
+    setCloudStatus('Sincronizado con la nube','online');
+    if(showToast)toast('Nube actualizada');
+  }catch(e){
+    console.error(e);
+    setCloudStatus('No se pudo sincronizar · copia local intacta','offline');
+    if(showToast)toast('No se pudo sincronizar con la nube');
+  }
+}
+
+async function deleteCloudProject(id){
+  if(!sb||!currentUser||!navigator.onLine)return;
+  const {error}=await sb.from('projects').delete().eq('id',id);
+  if(error)console.error(error);
+}
+
+function subscribeRealtime(){
+  if(!sb||!currentUser)return;
+  if(realtimeChannel)sb.removeChannel(realtimeChannel);
+  realtimeChannel=sb.channel('projects-sync')
+    .on('postgres_changes',{event:'*',schema:'public',table:'projects',filter:`user_id=eq.${currentUser.id}`},
+      ()=>{if(navigator.onLine)syncCloud(false)})
+    .subscribe();
+}
+
+
+async function fetchMakerWorld(url){
+  const r=await fetch('/api/makerworld?url='+encodeURIComponent(url),{headers:{'Accept':'application/json'}});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||'No se pudieron leer los datos del modelo');
+  return data;
+}
+
+async function importUrl(){
+  const url=$('#quickUrl').value.trim();
+  if(!url)return toast('Pega primero un enlace de MakerWorld');
+  $('#quickAdd').disabled=true;$('#loader').classList.add('on');
+  let meta={};
+  try{meta=await fetchMakerWorld(url)}catch(e){toast('No pude leer MakerWorld; guardo el enlace manualmente')}
+  const text=[meta.title,meta.description,meta.summary,(meta.tags||[]).join(' ')].filter(Boolean).join(' ');
+  const detected=detectExtras(text);
+  const project={
+    id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),
+    title:meta.title||deriveTitle(url),
+    url:meta.url||url,
+    image:normalizeImage(meta.coverUrl||meta.image),
+    category:detectCategory(text||deriveTitle(url)),
+    time:meta.estimatedTime||'',
+    extras:detected,
+    notes:stripHtml(meta.description||meta.summary||''),
+    author:meta.author||'',
+    modelId:meta.modelId||null,
+    profileCount:meta.profileCount||0,
+    printed:false,
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+  projects.unshift(project);save();$('#quickUrl').value='';
+  $('#quickAdd').disabled=false;$('#loader').classList.remove('on');
+  toast(meta.title?'Modelo importado con portada':'Proyecto guardado');
+}
+$('#quickAdd').addEventListener('click',importUrl);
+$('#quickUrl').addEventListener('keydown',e=>{if(e.key==='Enter')importUrl()});
+
+function cardHtml(p){
+  const extra=p.extras||[];
+  const image=p.image?`<img class="cover" loading="lazy" src="${esc(p.image)}" alt="${esc(p.title)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'cover-placeholder',textContent:'🧩'}))">`:`<div class="cover-placeholder">🧩</div>`;
+  return `<article class="card ${p.printed?'printed':''}" data-id="${esc(p.id)}">
+    ${image}
+    <div class="content">
+      <h3 class="title">${esc(p.title)}</h3>
+      ${p.notes?`<p class="desc">${esc(p.notes)}</p>`:''}
+      <div class="badges">
+        <span class="badge cat">${esc(p.category||'Otro')}</span>
+        ${p.printed?'<span class="badge ok">✓ Impreso</span>':''}
+        ${extra.length?`<span class="badge hw">⚡ ${esc(extra.join(', '))}</span>`:''}
+      </div>
+      <div class="meta">
+        ${p.time?`<span>⏱ ${esc(p.time)}</span>`:''}
+        ${p.author?`<span>👤 ${esc(p.author)}</span>`:''}
+        ${p.profileCount?`<span>🖨 ${esc(p.profileCount)} perfil${p.profileCount===1?'':'es'} de impresión</span>`:''}
+      </div>
+      <div class="actions">
+        <button class="subtle preview">Vista previa</button>
+        <button class="subtle edit">Editar</button>
+        <button class="subtle wide mark">${p.printed?'Marcar pendiente':'✓ Ya la imprimí'}</button>
+        ${p.url?`<button class="primary wide open">Abrir en MakerWorld</button>`:''}
+      </div>
+    </div>
+  </article>`;
+}
+
+function render(){
+  const q=search.value.trim().toLowerCase(),cat=categoryFilter.value;
+  const filtered=projects.filter(p=>{
+    const hay=[p.title,p.category,p.notes,p.author,...(p.extras||[])].join(' ').toLowerCase();
+    const statusOk=statusFilter==='all'||(statusFilter==='printed'&&p.printed)||(statusFilter==='pending'&&!p.printed);
+    return (!q||hay.includes(q))&&(!cat||p.category===cat)&&statusOk;
+  });
+  count.textContent=projects.length;
+  grid.innerHTML=filtered.length?filtered.map(cardHtml).join(''):`<div class="empty">No hay proyectos que coincidan con estos filtros.</div>`;
+}
+search.addEventListener('input',render);categoryFilter.addEventListener('change',render);
+$('#statusFilters').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  [...$('#statusFilters').children].forEach(x=>x.classList.remove('active'));b.classList.add('active');statusFilter=b.dataset.status;render();
+});
+grid.addEventListener('click',e=>{
+  const card=e.target.closest('.card');if(!card)return;const p=projects.find(x=>x.id===card.dataset.id);if(!p)return;
+  if(e.target.closest('.edit'))openEdit(p);
+  if(e.target.closest('.mark')){p.printed=!p.printed;p.updatedAt=new Date().toISOString();save()}
+  if(e.target.closest('.open')&&p.url)window.open(p.url,'_blank','noopener');
+  if(e.target.closest('.preview'))openPreview(p);
+});
+
+function openEdit(p=null){
+  $('#dialogTitle').textContent=p?'Editar proyecto':'Nuevo proyecto';
+  $('#projectId').value=p?.id||'';$('#title').value=p?.title||'';$('#url').value=p?.url||'';$('#image').value=p?.image||'';
+  $('#category').value=p?.category||'Otro';$('#time').value=p?.time||'';$('#extras').value=(p?.extras||[]).join(', ');
+  $('#notes').value=p?.notes||'';$('#printed').checked=!!p?.printed;$('#deleteBtn').style.display=p?'inline-block':'none';editDialog.showModal();
+}
+$('#newBtn').addEventListener('click',()=>openEdit());
+$('#closeDialog').addEventListener('click',()=>editDialog.close());
+$('#projectForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const id=$('#projectId').value;
+  const obj={
+    title:$('#title').value.trim(),url:$('#url').value.trim(),image:$('#image').value.trim(),
+    category:$('#category').value,time:$('#time').value.trim(),
+    extras:uniq($('#extras').value.split(',').map(x=>x.trim())),notes:$('#notes').value.trim(),
+    printed:$('#printed').checked,updatedAt:new Date().toISOString()
+  };
+  if(!obj.title)return;
+  if(id){const i=projects.findIndex(x=>x.id===id);projects[i]={...projects[i],...obj}}
+  else projects.unshift({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),...obj,createdAt:new Date().toISOString()});
+  save();editDialog.close();toast('Proyecto guardado');
+});
+$('#deleteBtn').addEventListener('click',()=>{
+  const id=$('#projectId').value;if(!id)return;
+  if(confirm('¿Eliminar este proyecto?')){projects=projects.filter(x=>x.id!==id);saveLocal();deleteCloudProject(id);editDialog.close();toast('Proyecto eliminado')}
+});
+
+function openPreview(p){
+  $('#previewTitle').textContent=p.title;
+  const img=$('#previewImg');if(p.image){img.src=p.image;img.style.display='block'}else img.style.display='none';
+  $('#previewBadges').innerHTML=`<span class="badge cat">${esc(p.category||'Otro')}</span>${p.printed?'<span class="badge ok">✓ Impreso</span>':''}${(p.extras||[]).length?`<span class="badge hw">⚡ ${esc((p.extras||[]).join(', '))}</span>`:''}`;
+  $('#previewMeta').innerHTML=[p.author&&`<span>Autor: ${esc(p.author)}</span>`,p.time&&`<span>Tiempo: ${esc(p.time)}</span>`,p.profileCount&&`<span>Perfiles: ${esc(p.profileCount)}</span>`].filter(Boolean).join('');
+  $('#previewDesc').textContent=p.notes||'';
+  $('#previewOpen').onclick=()=>p.url&&window.open(p.url,'_blank','noopener');
+  $('#previewOpen').style.display=p.url?'block':'none';
+  previewDialog.showModal();
+}
+$('#closePreview').addEventListener('click',()=>previewDialog.close());
+
+function exportData(){
+  const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),projects},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='impresiones-inspo-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(file){
+  const r=new FileReader();r.onload=()=>{
+    try{
+      const x=JSON.parse(r.result),arr=Array.isArray(x)?x:x.projects;
+      if(!Array.isArray(arr))throw 0;
+      projects=arr;save();toast('Copia restaurada');
+    }catch{toast('Ese archivo no parece una copia válida')}
+  };r.readAsText(file);
+}
+const backupBar=document.createElement('div');
+backupBar.className='panel';
+backupBar.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="subtle" id="exportBtn">Exportar copia JSON</button><label class="subtle" style="cursor:pointer">Importar copia<input id="importFile" type="file" accept="application/json" class="sr"></label><span class="hint" style="margin:0">Tus datos se guardan en este dispositivo y, al iniciar sesión, también en la nube.</span></div>`;
+document.querySelector('.app').insertBefore(backupBar,document.querySelector('.toolbar'));
+$('#exportBtn').onclick=exportData;$('#importFile').onchange=e=>e.target.files[0]&&importData(e.target.files[0]);
+
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+render();
+initCloud();
+</script>
+</body>
+</html>
+# Impresiones Inspo — versión Cloud
+
+Esta versión guarda tus proyectos:
+1. Localmente en cada dispositivo.
+2. En Supabase cuando inicias sesión.
+3. Sincronizados entre iPhone, PC y cualquier otro dispositivo usando la misma cuenta.
+
+## Archivos importantes
+
+- `index.html` — aplicación
+- `config.js` — URL y clave pública de Supabase
+- `supabase.sql` — crea la tabla y las reglas privadas de acceso
+- `api/makerworld.js` — obtiene datos de MakerWorld
+- `manifest.json` + `sw.js` — PWA
+- iconos PNG
+
+## 1. Crear Supabase
+
+Crea un proyecto en Supabase.
+
+Después abre:
+**SQL Editor > New query**
+
+Copia todo el contenido de `supabase.sql` y ejecútalo.
+
+Esto crea la tabla `projects` y activa RLS para que cada cuenta solo pueda ver sus propios proyectos.
+
+## 2. Activar login por email
+
+En Supabase:
+**Authentication > Providers > Email**
+
+Déjalo activado.
+
+Si quieres que la cuenta funcione inmediatamente sin confirmar correo, puedes desactivar temporalmente "Confirm email". Si lo mantienes activado, tendrás que confirmar el primer correo de registro.
+
+## 3. Copiar las claves públicas
+
+En Supabase:
+**Project Settings > API**
+
+Copia:
+- Project URL
+- anon/public key
+
+Abre `config.js` y reemplaza:
+
+```js
+SUPABASE_URL: "PEGA_AQUI_TU_SUPABASE_URL",
+SUPABASE_ANON_KEY: "PEGA_AQUI_TU_SUPABASE_ANON_KEY"
+```
+
+La `anon key` está pensada para usarse en el frontend. La seguridad real la aplican las políticas RLS del archivo SQL.
+
+## 4. Publicar en Vercel
+
+Sube esta carpeta completa a Vercel.
+
+La carpeta `/api` debe permanecer exactamente así porque contiene la función que consulta MakerWorld.
+
+## 5. iPhone
+
+Abre la URL HTTPS de Vercel en Safari:
+**Compartir > Añadir a pantalla de inicio**
+
+Después:
+- crea tu cuenta desde la app,
+- inicia sesión con el mismo email en PC,
+- los proyectos aparecerán en ambos dispositivos.
+
+## Cómo funciona la sincronización
+
+- Cada cambio se guarda primero localmente.
+- Si tienes internet y sesión iniciada, se sube a Supabase.
+- Al abrir otro dispositivo, se descargan y mezclan los proyectos.
+- Si pierdes internet, puedes seguir usando la copia local.
+- Al volver la conexión, vuelve a sincronizar.
+- También existe el botón "Sincronizar ahora".
+- Puedes seguir exportando un backup JSON manual.
+
+## Privacidad
+
+La tabla usa `user_id` y Row Level Security.
+Un usuario autenticado solo puede leer, crear, editar o eliminar sus propias filas.
