@@ -13,12 +13,7 @@
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="icon" href="/icon-192.png" />
   <title>Impresiones Inspo</title>
-  <script>
-window.CLOUD_CONFIG={
-  SUPABASE_URL:"https://fbhnorbzcxyzmeqlampu.supabase.co",
-  SUPABASE_ANON_KEY:"sb_publishable_lEo6sGAtwq7p6n5vpW4TeA_tnaJhP4e"
-};
-</script>
+  <script src="/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{
@@ -258,8 +253,15 @@ function load(){
   }catch{return []}
 }
 function saveLocal(){
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(projects));
-  render();
+  try{
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(projects));
+    render();
+    return true;
+  }catch(e){
+    console.error('LOCAL STORAGE',e);
+    render();
+    return false;
+  }
 }
 function save(){
   saveLocal();
@@ -330,11 +332,11 @@ async function initCloud(){
     const {data:{session}}=await sb.auth.getSession();
     currentUser=session?.user||null;
     updateAuthUI();
-    if(currentUser) await syncCloud(true);
+    if(currentUser){ await syncCloud(false); await migrateLegacyImages(); await syncCloud(true); }
     sb.auth.onAuthStateChange(async (_event,session)=>{
       currentUser=session?.user||null;
       updateAuthUI();
-      if(currentUser) await syncCloud(true);
+      if(currentUser){ await syncCloud(false); await migrateLegacyImages(); await syncCloud(true); }
     });
     window.addEventListener('online',()=>{if(currentUser) syncCloud(true)});
     window.addEventListener('offline',()=>setCloudStatus('Sin conexión · copia local activa','offline'));
@@ -348,7 +350,7 @@ function updateAuthUI(){
   if(currentUser){
     $('#authBox').style.display='none';
     $('#cloudActions').innerHTML='<button id="syncNowBtn" class="subtle" type="button">Sincronizar ahora</button> <button id="logoutBtn" class="subtle" type="button">Salir</button>';
-    $('#syncNowBtn').onclick=()=>syncCloud(true);
+    $('#syncNowBtn').onclick=async()=>{await migrateLegacyImages();await syncCloud(true)};
     $('#logoutBtn').onclick=()=>sb.auth.signOut();
     setCloudStatus(navigator.onLine?'Sincronizado con la nube':'Sin conexión · copia local activa',navigator.onLine?'online':'offline');
     subscribeRealtime();
@@ -365,7 +367,7 @@ async function signIn(){
   if(!email||!password)return toast('Escribe email y contraseña');
   setCloudStatus('Entrando…','syncing');
   const {error}=await sb.auth.signInWithPassword({email,password});
-  if(error){console.error('LOGIN',error);setCloudStatus('Error: '+error.message,'offline');toast(error.message)}
+  if(error){setCloudStatus('No se pudo iniciar sesión','offline');toast(error.message)}
 }
 async function signUp(){
   const email=$('#authEmail').value.trim(),password=$('#authPassword').value;
@@ -373,7 +375,7 @@ async function signUp(){
   if(password.length<6)return toast('Usa una contraseña de al menos 6 caracteres');
   setCloudStatus('Creando cuenta…','syncing');
   const {data,error}=await sb.auth.signUp({email,password});
-  if(error){console.error('SIGNUP',error);setCloudStatus('Error: '+error.message,'offline');return toast(error.message)}
+  if(error){setCloudStatus('No se pudo crear la cuenta','offline');return toast(error.message)}
   toast(data.session?'Cuenta creada':'Revisa tu email para confirmar la cuenta');
 }
 document.addEventListener('click',e=>{
@@ -426,9 +428,39 @@ async function syncCloud(showToast=false){
     if(showToast)toast('Nube actualizada');
   }catch(e){
     console.error(e);
-    setCloudStatus('Error nube: '+(e?.message||'desconocido'),'offline');
-    if(showToast)toast(e?.message||'No se pudo sincronizar con la nube');
+    setCloudStatus('No se pudo sincronizar · copia local intacta','offline');
+    if(showToast)toast('No se pudo sincronizar con la nube');
   }
+}
+
+async function migrateLegacyImages(){
+  if(!sb||!currentUser||!navigator.onLine)return false;
+  const legacy=projects.filter(p=>typeof p.image==='string'&&p.image.startsWith('data:image/'));
+  if(!legacy.length)return false;
+  setCloudStatus(`Liberando fotos antiguas… 0/${legacy.length}`,'syncing');
+  let done=0;
+  for(const p of legacy){
+    try{
+      const sourceBlob=await fetch(p.image).then(r=>r.blob());
+      const blob=await prepareCover(sourceBlob);
+      const path=`${currentUser.id}/${p.id}-migrated-${Date.now()}.webp`;
+      const {error}=await sb.storage.from('project-covers').upload(path,blob,{contentType:'image/webp'});
+      if(error)throw error;
+      p.image=sb.storage.from('project-covers').getPublicUrl(path).data.publicUrl;
+      p.updatedAt=new Date().toISOString();
+      done++;
+      setCloudStatus(`Liberando fotos antiguas… ${done}/${legacy.length}`,'syncing');
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(projects))}catch{}
+    }catch(e){
+      console.error('MIGRATE IMAGE',p.id,e);
+    }
+  }
+  if(done){
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(projects))}catch{}
+    render();
+    toast(`${done} foto${done===1?'':'s'} movida${done===1?'':'s'} a la nube`);
+  }
+  return done>0;
 }
 
 async function deleteCloudProject(id){
@@ -555,16 +587,6 @@ function openEdit(p=null){
   $('#category').value=p?.category||'Otro';$('#time').value=p?.time||'';$('#extras').value=(p?.extras||[]).join(', ');
   $('#notes').value=p?.notes||'';$('#printed').checked=!!p?.printed;$('#deleteBtn').style.display=p?'inline-block':'none';pendingImageFile=null;$('#imageFile').value='';$('#imageUploadStatus').textContent='';editDialog.showModal();
 }
-
-['dragenter','dragover'].forEach(type=>document.addEventListener(type,e=>{
-  if(!editDialog.open)return; e.preventDefault();
-  $('#imageUploadStatus').textContent='Suelta la imagen aquí';
-}));
-document.addEventListener('drop',e=>{
-  if(!editDialog.open)return; e.preventDefault();
-  const file=[...(e.dataTransfer?.files||[])].find(f=>f.type.startsWith('image/'));
-  if(file){pendingImageFile=file;$('#imageUploadStatus').textContent='Imagen lista para subir al guardar';toast('Imagen añadida')}
-});
 document.addEventListener('paste',e=>{
  if(!editDialog.open)return;const item=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
  if(item){pendingImageFile=item.getAsFile();$('#imageUploadStatus').textContent='Imagen pegada y lista para subir al guardar';toast('Imagen pegada')}
@@ -619,7 +641,7 @@ backupBar.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items
 document.querySelector('.app').insertBefore(backupBar,document.querySelector('.toolbar'));
 $('#exportBtn').onclick=exportData;$('#importFile').onchange=e=>e.target.files[0]&&importData(e.target.files[0]);
 
-if('serviceWorker' in navigator)window.addEventListener('load',async()=>{try{for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}catch(e){console.warn(e)}});
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 render();
 initCloud();
 </script>
