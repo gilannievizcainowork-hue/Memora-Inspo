@@ -161,13 +161,10 @@
       </div>
       <div>
         <label class="label">Imagen / portada</label>
-<input id="image" class="field" inputmode="url"
-placeholder="URL o deja vacío y selecciona una imagen">
-
-<input id="imageFile" type="file" accept="image/*" style="margin-top:10px">
-
-<small style="color:#98a2b3">También puedes pegar una imagen con Ctrl+V.</small>
-</div>
+        <input id="image" class="field" inputmode="url" placeholder="URL de la portada">
+        <input id="imageFile" type="file" accept="image/*" class="field" style="margin-top:8px">
+        <div id="imageUploadStatus" class="hint" style="margin-top:6px"></div>
+      </div>
       <div class="row">
         <div>
           <label class="label">Categoría</label>
@@ -243,6 +240,11 @@ let cloudConfigured=false;
 const $=s=>document.querySelector(s);
 const grid=$('#grid'), count=$('#count'), search=$('#search'), categoryFilter=$('#categoryFilter');
 const editDialog=$('#editDialog'), previewDialog=$('#previewDialog');
+let pendingImageFile=null;
+$('#imageFile').addEventListener('change',e=>{
+ pendingImageFile=e.target.files?.[0]||null;
+ $('#imageUploadStatus').textContent=pendingImageFile?'Imagen lista para subir al guardar':'';
+});
 
 function load(){
   try{
@@ -529,27 +531,42 @@ grid.addEventListener('click',e=>{
   if(e.target.closest('.preview'))openPreview(p);
 });
 
+async function prepareCover(file){
+ const bitmap=await createImageBitmap(file),max=1400,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+ const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+ canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+ return await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('No se pudo preparar la imagen')),'image/webp',0.82));
+}
+async function uploadCover(file,projectId){
+ if(!sb||!currentUser)throw new Error('Inicia sesión para subir la portada');
+ $('#imageUploadStatus').textContent='Subiendo imagen…';
+ const blob=await prepareCover(file),path=`${currentUser.id}/${projectId}-${Date.now()}.webp`;
+ const {error}=await sb.storage.from('project-covers').upload(path,blob,{contentType:'image/webp'});if(error)throw error;
+ return sb.storage.from('project-covers').getPublicUrl(path).data.publicUrl;
+}
 function openEdit(p=null){
   $('#dialogTitle').textContent=p?'Editar proyecto':'Nuevo proyecto';
   $('#projectId').value=p?.id||'';$('#title').value=p?.title||'';$('#url').value=p?.url||'';$('#image').value=p?.image||'';
   $('#category').value=p?.category||'Otro';$('#time').value=p?.time||'';$('#extras').value=(p?.extras||[]).join(', ');
-  $('#notes').value=p?.notes||'';$('#printed').checked=!!p?.printed;$('#deleteBtn').style.display=p?'inline-block':'none';editDialog.showModal();
+  $('#notes').value=p?.notes||'';$('#printed').checked=!!p?.printed;$('#deleteBtn').style.display=p?'inline-block':'none';pendingImageFile=null;$('#imageFile').value='';$('#imageUploadStatus').textContent='';editDialog.showModal();
 }
+document.addEventListener('paste',e=>{
+ if(!editDialog.open)return;const item=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
+ if(item){pendingImageFile=item.getAsFile();$('#imageUploadStatus').textContent='Imagen pegada y lista para subir al guardar';toast('Imagen pegada')}
+});
 $('#newBtn').addEventListener('click',()=>openEdit());
 $('#closeDialog').addEventListener('click',()=>editDialog.close());
-$('#projectForm').addEventListener('submit',e=>{
-  e.preventDefault();
-  const id=$('#projectId').value;
-  const obj={
-    title:$('#title').value.trim(),url:$('#url').value.trim(),image:$('#image').value.trim(),
-    category:$('#category').value,time:$('#time').value.trim(),
-    extras:uniq($('#extras').value.split(',').map(x=>x.trim())),notes:$('#notes').value.trim(),
-    printed:$('#printed').checked,updatedAt:new Date().toISOString()
-  };
+$('#projectForm').addEventListener('submit',async e=>{
+ e.preventDefault();const btn=e.submitter||$('#projectForm button[type="submit"]'),old=btn.textContent;
+ const existingId=$('#projectId').value,id=existingId||(crypto.randomUUID?crypto.randomUUID():String(Date.now()));btn.disabled=true;
+ try{
+  let image=$('#image').value.trim();if(pendingImageFile){btn.textContent='Subiendo imagen…';image=await uploadCover(pendingImageFile,id)}
+  const obj={title:$('#title').value.trim(),url:$('#url').value.trim(),image,category:$('#category').value,time:$('#time').value.trim(),extras:uniq($('#extras').value.split(',').map(x=>x.trim())),notes:$('#notes').value.trim(),printed:$('#printed').checked,updatedAt:new Date().toISOString()};
   if(!obj.title)return;
-  if(id){const i=projects.findIndex(x=>x.id===id);projects[i]={...projects[i],...obj}}
-  else projects.unshift({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),...obj,createdAt:new Date().toISOString()});
-  save();editDialog.close();toast('Proyecto guardado');
+  if(existingId){const i=projects.findIndex(x=>x.id===existingId);projects[i]={...projects[i],...obj}}else projects.unshift({id,...obj,createdAt:new Date().toISOString()});
+  pendingImageFile=null;save();editDialog.close();toast('Proyecto guardado');
+ }catch(err){console.error(err);$('#imageUploadStatus').textContent='Error: '+(err?.message||'No se pudo subir');toast('No se pudo guardar la portada')}
+ finally{btn.disabled=false;btn.textContent=old}
 });
 $('#deleteBtn').addEventListener('click',()=>{
   const id=$('#projectId').value;if(!id)return;
@@ -588,19 +605,6 @@ document.querySelector('.app').insertBefore(backupBar,document.querySelector('.t
 $('#exportBtn').onclick=exportData;$('#importFile').onchange=e=>e.target.files[0]&&importData(e.target.files[0]);
 
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
-
-document.addEventListener("paste", e => {
-    const item = [...e.clipboardData.items].find(i => i.type.startsWith("image/"));
-    if (!item) return;
-    const file = item.getAsFile();
-    const reader = new FileReader();
-    reader.onload = () => {
-        $("#image").value = reader.result;
-        if (typeof toast==="function") toast("Imagen pegada correctamente");
-    };
-    reader.readAsDataURL(file);
-});
-
 render();
 initCloud();
 </script>
